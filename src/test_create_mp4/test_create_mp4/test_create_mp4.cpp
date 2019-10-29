@@ -10,6 +10,7 @@ extern "C" {
 
 using namespace std;
 
+//string fileName = "D:/Work/create.mp4";
 string fileName = "D:/Work/create.mkv";
 
 AVCodec* codec_video;
