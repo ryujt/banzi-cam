@@ -13,11 +13,21 @@ using namespace std;
 //string fileName = "D:/Work/create.mp4";
 string fileName = "D:/Work/create.mkv";
 
+AVOutputFormat* fmt;
+AVFormatContext* oc;
+
 AVCodec* codec_video;
 AVCodecContext* ctx_video;
+AVStream* video_st;
+uint8_t* video_outbuf;
+int video_outbuf_size;
 
 AVCodec* codec_audio;
 AVCodecContext* ctx_audio;
+AVStream* audio_st;
+AVFrame* audio_frame;
+uint8_t* audio_outbuf;
+int audio_outbuf_size;
 
 const int pixel_size = 3;
 const int width = 1024;
@@ -113,30 +123,73 @@ AVStream* add_audio_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 	return st;
 }
 
+bool write_audio_frame(int16_t *data) {
+	int ret;
+
+	ret = avcodec_send_frame(ctx_audio, audio_frame);
+	if (ret < 0) {
+		printf("Error sending the frame to the encoder \n");
+		return false;
+	}
+
+	while (ret >= 0) {
+		ret = avcodec_receive_packet(ctx_audio, pkt);
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+			return;
+		else if (ret < 0) {
+			fprintf(stderr, "Error encoding audio frame\n");
+			exit(1);
+		}
+
+		fwrite(pkt->data, 1, pkt->size, output);
+		av_packet_unref(pkt);
+	}
+
+	AVPacket pkt;
+	av_init_packet(&pkt);
+
+	pkt.size = avcodec_encode_audio(codec_audio, audio_outbuf,audio_outbuf_size, data);
+
+	if (codec_audio->coded_frame && codec_audio->coded_frame->pts != AV_NOPTS_VALUE)
+		pkt.pts =
+		av_rescale_q(
+			codec_audio->coded_frame->pts,
+			codec_audio->time_base,
+			audio_st->time_base
+		);
+
+	pkt.flags |= AV_PKT_FLAG_KEY;
+	pkt.stream_index = audio_st->index;
+	pkt.data = audio_outbuf;
+
+	return av_interleaved_write_frame(oc, &pkt);
+}
+
+
 int main()
 {
-	AVOutputFormat* fmt;
 	fmt = av_guess_format(NULL, fileName.c_str(), NULL);
 	if (!fmt) return -1;
 
-	AVFormatContext* oc;
 	avformat_alloc_output_context2(&oc, fmt, NULL, fileName.c_str());
 	if (!oc) return -2;
 
 	fmt->video_codec = AV_CODEC_ID_H264;
 	//fmt->video_codec = AV_CODEC_ID_VP8;
-	AVStream* video_st = add_video_stream(oc, fmt->video_codec);
+	video_st = add_video_stream(oc, fmt->video_codec);
 	if (!video_st) return -3;
 
 	//fmt->audio_codec = AV_CODEC_ID_AAC;
 	//fmt->audio_codec = AV_CODEC_ID_OPUS;
 	fmt->audio_codec = AV_CODEC_ID_MP3;
-	AVStream* audio_st = add_audio_stream(oc, fmt->audio_codec);
+	audio_st = add_audio_stream(oc, fmt->audio_codec);
 	if (!video_st) return -4;
 
 	if (avio_open(&oc->pb, fileName.c_str(), AVIO_FLAG_WRITE) < 0) return -5;
 
 	avformat_write_header(oc, NULL);
+
+	audio_frame = av_frame_alloc();
 
 	return 0;
 }
