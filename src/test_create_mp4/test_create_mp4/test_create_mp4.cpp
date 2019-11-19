@@ -10,9 +10,6 @@ extern "C" {
 
 using namespace std;
 
-//string fileName = "D:/Work/create.mp4";
-string fileName = "D:/Work/create.mkv";
-
 AVOutputFormat* fmt;
 AVFormatContext* oc;
 
@@ -45,9 +42,6 @@ const void* audio_buffer = malloc(channels * samples * sample_size);
 
 AVStream* add_video_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 {
-	AVStream* st = avformat_new_stream(oc, 0);
-	if (!st) return NULL;
-
 	codec_video = avcodec_find_encoder(codec_id);
 	if (!codec_video) return NULL;
 
@@ -58,7 +52,12 @@ AVStream* add_video_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 	ctx_video->width = width;
 	ctx_video->height = height;
 	ctx_video->bit_rate = video_bitrate;
+
 	ctx_video->time_base.num = 1;
+	ctx_video->time_base.den = video_framerate;
+	ctx_video->framerate.num = video_framerate;
+	ctx_video->framerate.den = 1;
+
 	ctx_video->gop_size = 10;
 	ctx_video->max_b_frames = 1;
 	ctx_video->pix_fmt = AV_PIX_FMT_YUV420P;
@@ -70,7 +69,7 @@ AVStream* add_video_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 
 	if (avcodec_open2(ctx_video, codec_video, NULL) < 0) return NULL;
 
-	return st;
+	return avformat_new_stream(oc, codec_video);
 }
 
 static int select_channel_layout(const AVCodec* codec)
@@ -97,9 +96,6 @@ static int select_channel_layout(const AVCodec* codec)
 
 AVStream* add_audio_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 {
-	AVStream* st = avformat_new_stream(oc, 0);
-	if (!st) return NULL;
-
 	codec_audio = avcodec_find_encoder(codec_id);
 	if (!codec_audio) return NULL;
 
@@ -107,8 +103,8 @@ AVStream* add_audio_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 	if (!ctx_audio) return NULL;
 
 	ctx_audio->codec_type = AVMEDIA_TYPE_AUDIO;
-	//ctx_audio->sample_fmt = AV_SAMPLE_FMT_FLTP;
-	ctx_audio->sample_fmt = AV_SAMPLE_FMT_FLT;
+	ctx_audio->sample_fmt = AV_SAMPLE_FMT_FLTP;
+	//ctx_audio->sample_fmt = AV_SAMPLE_FMT_FLT;
 	ctx_audio->channel_layout = select_channel_layout(codec_audio);
 	ctx_audio->channels = channels;
 	ctx_audio->sample_rate = samplerate;
@@ -120,76 +116,111 @@ AVStream* add_audio_stream(AVFormatContext* oc, enum AVCodecID codec_id)
 
 	if (avcodec_open2(ctx_audio, codec_audio, NULL) < 0) return NULL;
 
-	return st;
+	return avformat_new_stream(oc, codec_audio);
 }
 
-bool write_audio_frame(int16_t *data) {
-	int ret;
-
-	ret = avcodec_send_frame(ctx_audio, audio_frame);
-	if (ret < 0) {
-		printf("Error sending the frame to the encoder \n");
+bool write_audio_frame(void* data) {
+	int result = av_frame_make_writable(audio_frame);
+	if (result < 0) {
+		printf("Error - av_frame_make_writable \n");
 		return false;
 	}
 
-	while (ret >= 0) {
-		ret = avcodec_receive_packet(ctx_audio, pkt);
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-			return;
-		else if (ret < 0) {
-			fprintf(stderr, "Error encoding audio frame\n");
-			exit(1);
+	result = avcodec_send_frame(ctx_audio, audio_frame);
+	if (result < 0) {
+		printf("Error - sending the frame to the encoder \n");
+		return false;
+	}
+
+	AVPacket* pkt;
+	pkt = av_packet_alloc();
+	av_init_packet(pkt);
+
+	while (result >= 0) {
+		result = avcodec_receive_packet(ctx_audio, pkt);
+		if (result == AVERROR(EAGAIN) || result == AVERROR_EOF)
+			return true;
+		else if (result < 0) {
+			printf("Error encoding audio frame\n");
+			return false;
 		}
 
-		fwrite(pkt->data, 1, pkt->size, output);
+		av_interleaved_write_frame(oc, pkt);
 		av_packet_unref(pkt);
 	}
 
-	AVPacket pkt;
-	av_init_packet(&pkt);
-
-	pkt.size = avcodec_encode_audio(codec_audio, audio_outbuf,audio_outbuf_size, data);
-
-	if (codec_audio->coded_frame && codec_audio->coded_frame->pts != AV_NOPTS_VALUE)
-		pkt.pts =
-		av_rescale_q(
-			codec_audio->coded_frame->pts,
-			codec_audio->time_base,
-			audio_st->time_base
-		);
-
-	pkt.flags |= AV_PKT_FLAG_KEY;
-	pkt.stream_index = audio_st->index;
-	pkt.data = audio_outbuf;
-
-	return av_interleaved_write_frame(oc, &pkt);
+	return true;
 }
 
-
-int main()
+int create_video_file(string filename)
 {
-	fmt = av_guess_format(NULL, fileName.c_str(), NULL);
+	fmt = av_guess_format(NULL, filename.c_str(), NULL);
 	if (!fmt) return -1;
 
-	avformat_alloc_output_context2(&oc, fmt, NULL, fileName.c_str());
+	avformat_alloc_output_context2(&oc, fmt, NULL, filename.c_str());
 	if (!oc) return -2;
+
+	fmt->audio_codec = AV_CODEC_ID_AAC;
+	//fmt->audio_codec = AV_CODEC_ID_OPUS;
+	//fmt->audio_codec = AV_CODEC_ID_MP3;
+	audio_st = add_audio_stream(oc, fmt->audio_codec);
+	if (audio_st == NULL) return -4;
+
+	avcodec_parameters_from_context(audio_st->codecpar, ctx_audio);
 
 	fmt->video_codec = AV_CODEC_ID_H264;
 	//fmt->video_codec = AV_CODEC_ID_VP8;
 	video_st = add_video_stream(oc, fmt->video_codec);
-	if (!video_st) return -3;
+	if (video_st == NULL) return -3;
 
-	//fmt->audio_codec = AV_CODEC_ID_AAC;
-	//fmt->audio_codec = AV_CODEC_ID_OPUS;
-	fmt->audio_codec = AV_CODEC_ID_MP3;
-	audio_st = add_audio_stream(oc, fmt->audio_codec);
-	if (!video_st) return -4;
+	avcodec_parameters_from_context(video_st->codecpar, ctx_video);
 
-	if (avio_open(&oc->pb, fileName.c_str(), AVIO_FLAG_WRITE) < 0) return -5;
+	if (avio_open(&oc->pb, filename.c_str(), AVIO_FLAG_WRITE) < 0) return -5;
 
-	avformat_write_header(oc, NULL);
+	int result = avformat_write_header(oc, NULL);
+	if (result < 0) {
+		printf("error - avformat_write_header: %d\n", result);
+		return -9;
+	}
+
+	return 0;
+}
+
+void close_video_file()
+{
+	av_write_trailer(oc);
+	avcodec_close(ctx_video);
+	avcodec_close(ctx_audio);
+	avio_close(oc->pb);
+}
+
+int main()
+{
+	int result = create_video_file("D:/Work/create.mp4");
+	if (result < 0) return result;
+
+	printf("ctx_audio->frame_size: %d \n", ctx_audio->frame_size);
 
 	audio_frame = av_frame_alloc();
+	audio_frame->nb_samples     = ctx_audio->frame_size;
+	audio_frame->format         = ctx_audio->sample_fmt;
+	audio_frame->channel_layout = ctx_audio->channel_layout;
+	result = av_frame_get_buffer(audio_frame, 0);
+	if (result < 0) {
+		printf("Could not allocate audio data buffers\n");
+		return -6;
+	}
+
+	result = av_frame_make_writable(audio_frame);
+	if (result < 0) {
+		printf("error - av_frame_make_writable\n");
+		return -7;
+	}
+
+	void* buffer = malloc(1024*1024);
+	for (int i=0; i<(1024); i++) write_audio_frame(buffer);
+
+	close_video_file();
 
 	return 0;
 }
