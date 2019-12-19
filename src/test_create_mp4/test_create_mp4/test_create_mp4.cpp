@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 #include <string>
 
 extern "C" {
@@ -6,6 +7,8 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+#include <libavutil/avutil.h>
 }
 
 using namespace std;
@@ -16,6 +19,7 @@ AVFormatContext* ctx;
 AVCodec* codec_video;
 AVCodecContext* ctx_video;
 AVStream* st_video;
+AVFrame* rgb_frame;
 uint8_t* video_outbuf;
 int video_outbuf_size;
 
@@ -139,6 +143,67 @@ void write_audio_frame(void* data) {
 	}
 }
 
+void write_video_frame(void* bitmap) {
+	//memcpy(
+	//	pHandle->pFrameRGB->data[0],
+	//	pBitmapData,
+	//	pHandle->video_st->codec->width * pHandle->video_st->codec->height * PICXEL_SIZE
+	//);
+
+/*	sws_scale(
+		pHandle->img_convert_ctx,
+		pHandle->pFrameRGB->data,
+		pHandle->pFrameRGB->linesize,
+		0,
+		pHandle->video_st->codec->height,
+		pHandle->pFrameYUV->data,
+		pHandle->pFrameYUV->linesize
+	);
+
+	if (pHandle->oc->oformat->flags & AVFMT_RAWPICTURE) {
+		AVPacket pkt;
+		av_init_packet(&pkt);
+
+		pkt.flags |= AV_PKT_FLAG_KEY;
+		pkt.stream_index = pHandle->video_st->index;
+		pkt.data = (uint8_t *) pHandle->pFrameYUV;
+		pkt.size = sizeof(AVPicture);
+
+		return av_interleaved_write_frame(pHandle->oc, &pkt);
+	} else {
+		int outSize = avcodec_encode_video(
+			pHandle->video_st->codec,
+			pHandle->video_outbuf, pHandle->video_outbuf_size,
+			pHandle->pFrameYUV
+		);
+
+		if (outSize > 0) {
+			AVPacket pkt;
+			av_init_packet(&pkt);
+
+			if (pHandle->video_st->codec->coded_frame->pts != AV_NOPTS_VALUE) {
+				pkt.pts = av_rescale_q(
+					pHandle->video_st->codec->coded_frame->pts,
+					pHandle->video_st->codec->time_base,
+					pHandle->video_st->time_base
+				);
+			}
+
+			if(pHandle->video_st->codec->coded_frame->key_frame)
+				pkt.flags |= AV_PKT_FLAG_KEY;
+
+			pkt.stream_index = pHandle->video_st->index;
+			pkt.data = pHandle->video_outbuf;
+			pkt.size = outSize;
+
+			return av_interleaved_write_frame(pHandle->oc, &pkt);
+		} else {
+			return 0;
+		}
+		}
+	*/
+}
+
 int create_video_file(string filename)
 {
 	fmt = av_guess_format(NULL, filename.c_str(), NULL);
@@ -155,8 +220,8 @@ int create_video_file(string filename)
 
 	avcodec_parameters_from_context(st_audio->codecpar, ctx_audio);
 
-	//fmt->video_codec = AV_CODEC_ID_H264;
-	fmt->video_codec = AV_CODEC_ID_VP8;
+	fmt->video_codec = AV_CODEC_ID_H264;
+	//fmt->video_codec = AV_CODEC_ID_VP8;
 	st_video = add_video_stream(ctx, fmt->video_codec);
 	if (st_video == NULL) return -3;
 
@@ -181,10 +246,30 @@ void close_video_file()
 	avio_close(ctx->pb);
 }
 
+static AVFrame *alloc_picture(enum AVPixelFormat pix_fmt, int width, int height)
+{
+	AVFrame *picture;
+	int ret;
+
+	picture = av_frame_alloc();
+	if (!picture) return NULL;
+
+	picture->format = pix_fmt;
+	picture->width  = width;
+	picture->height = height;
+
+	ret = av_frame_get_buffer(picture, 32);
+	if (ret < 0) return NULL;
+
+	return picture;
+}
+
 int main()
 {
-	int result = create_video_file("D:/Work/create.webm");
+	int result = create_video_file("D:/Work/create.mkv");
 	if (result < 0) return result;
+
+	rgb_frame = alloc_picture(AV_PIX_FMT_BGRA, width, height);
 
 	audio_frame = av_frame_alloc();
 	audio_frame->nb_samples     = ctx_audio->frame_size;
