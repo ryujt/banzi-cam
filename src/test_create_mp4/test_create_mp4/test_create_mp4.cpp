@@ -2,6 +2,10 @@
 #include <iostream>
 #include <string>
 
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "secur32.lib")
+#pragma comment(lib, "bcrypt.lib")
+
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -13,13 +17,17 @@ extern "C" {
 
 using namespace std;
 
+int pts = 0;
+
 AVOutputFormat* fmt;
 AVFormatContext* ctx;
 
 AVCodec* codec_video;
 AVCodecContext* ctx_video;
 AVStream* st_video;
-AVFrame* rgb_frame;
+AVFrame* video_frame;
+AVPacket* video_packet;
+
 uint8_t* video_outbuf;
 int video_outbuf_size;
 
@@ -30,12 +38,12 @@ AVFrame* audio_frame;
 uint8_t* audio_outbuf;
 AVPacket* audio_packet;
 
-const int pixel_size = 3;
+const int pixel_size = 4;
 const int width = 1024;
 const int height = 768;
 const int video_framerate = 25;
 const int video_bitrate = 1024 * 1024;
-const void* bitmap = malloc(width * height * pixel_size);
+void* bitmap = malloc(width * height * pixel_size);
 
 const int sample_size = 4;
 const int samplerate = 48000;
@@ -128,6 +136,8 @@ void write_audio_frame(void* data) {
 		return;
 	}
 
+	audio_frame->pts = pts;
+
 	result = avcodec_send_frame(ctx_audio, audio_frame);
 	if (result < 0) {
 		printf("Error - sending the frame to the encoder \n");
@@ -144,64 +154,49 @@ void write_audio_frame(void* data) {
 }
 
 void write_video_frame(void* bitmap) {
+	int result = av_frame_make_writable(video_frame);
+	if (result < 0) {
+		printf("Error - av_frame_make_writable \n");
+		return;
+	}
+
+	/* prepare a dummy image */
+	/* Y */
+	for (int y = 0; y < ctx_video->height; y++) {
+		for (int x = 0; x < ctx_video->width; x++) {
+			video_frame->data[0][y * video_frame->linesize[0] + x] = x + y ;
+		}
+	}
+
+	/* Cb and Cr */
+	for (int y = 0; y < ctx_video->height/2; y++) {
+		for (int x = 0; x < ctx_video->width/2; x++) {
+			video_frame->data[1][y * video_frame->linesize[1] + x] = 128 + y;
+			video_frame->data[2][y * video_frame->linesize[2] + x] = 64 + x;
+		}
+	}
+
+	video_frame->pts = pts;
+
 	//memcpy(
-	//	pHandle->pFrameRGB->data[0],
-	//	pBitmapData,
-	//	pHandle->video_st->codec->width * pHandle->video_st->codec->height * PICXEL_SIZE
+	//	video_frame->data[0],
+	//	bitmap,
+	//	ctx_video->width * ctx_video->height * pixel_size
 	//);
 
-/*	sws_scale(
-		pHandle->img_convert_ctx,
-		pHandle->pFrameRGB->data,
-		pHandle->pFrameRGB->linesize,
-		0,
-		pHandle->video_st->codec->height,
-		pHandle->pFrameYUV->data,
-		pHandle->pFrameYUV->linesize
-	);
+	result = avcodec_send_frame(ctx_video, video_frame);
+	if (result < 0) {
+		printf("Error - sending the frame to the encoder \n");
+		return;
+	}
 
-	if (pHandle->oc->oformat->flags & AVFMT_RAWPICTURE) {
-		AVPacket pkt;
-		av_init_packet(&pkt);
+	while (result >= 0) {
+		result = avcodec_receive_packet(ctx_video, video_packet);
+		if (result < 0) return;
 
-		pkt.flags |= AV_PKT_FLAG_KEY;
-		pkt.stream_index = pHandle->video_st->index;
-		pkt.data = (uint8_t *) pHandle->pFrameYUV;
-		pkt.size = sizeof(AVPicture);
-
-		return av_interleaved_write_frame(pHandle->oc, &pkt);
-	} else {
-		int outSize = avcodec_encode_video(
-			pHandle->video_st->codec,
-			pHandle->video_outbuf, pHandle->video_outbuf_size,
-			pHandle->pFrameYUV
-		);
-
-		if (outSize > 0) {
-			AVPacket pkt;
-			av_init_packet(&pkt);
-
-			if (pHandle->video_st->codec->coded_frame->pts != AV_NOPTS_VALUE) {
-				pkt.pts = av_rescale_q(
-					pHandle->video_st->codec->coded_frame->pts,
-					pHandle->video_st->codec->time_base,
-					pHandle->video_st->time_base
-				);
-			}
-
-			if(pHandle->video_st->codec->coded_frame->key_frame)
-				pkt.flags |= AV_PKT_FLAG_KEY;
-
-			pkt.stream_index = pHandle->video_st->index;
-			pkt.data = pHandle->video_outbuf;
-			pkt.size = outSize;
-
-			return av_interleaved_write_frame(pHandle->oc, &pkt);
-		} else {
-			return 0;
-		}
-		}
-	*/
+		av_interleaved_write_frame(ctx, video_packet);
+		av_packet_unref(video_packet);
+	}
 }
 
 int create_video_file(string filename)
@@ -244,6 +239,9 @@ void close_video_file()
 	avcodec_close(ctx_video);
 	avcodec_close(ctx_audio);
 	avio_close(ctx->pb);
+	avcodec_free_context(&ctx_video);
+	avcodec_free_context(&ctx_video);
+	avformat_free_context(ctx);
 }
 
 static AVFrame *alloc_picture(enum AVPixelFormat pix_fmt, int width, int height)
@@ -266,10 +264,21 @@ static AVFrame *alloc_picture(enum AVPixelFormat pix_fmt, int width, int height)
 
 int main()
 {
-	int result = create_video_file("D:/Work/create.mkv");
+	int result = create_video_file("D:/Work/create2.mkv");
 	if (result < 0) return result;
 
-	rgb_frame = alloc_picture(AV_PIX_FMT_BGRA, width, height);
+	video_frame = alloc_picture(AV_PIX_FMT_YUV420P, width, height);
+	//video_frame = av_frame_alloc();
+	//video_frame->format = ctx_video->pix_fmt;
+	//video_frame->width  = ctx_video->width;
+	//video_frame->height = ctx_video->height;
+	result = av_frame_get_buffer(video_frame, 32);
+	if (result < 0) {
+		printf("Could not allocate the video frame data\n");
+		return -7;
+	}
+
+	video_packet = av_packet_alloc();
 
 	audio_frame = av_frame_alloc();
 	audio_frame->nb_samples     = ctx_audio->frame_size;
@@ -282,16 +291,13 @@ int main()
 	}
 
 	audio_packet = av_packet_alloc();
-	av_init_packet(audio_packet);
-
-	result = av_frame_make_writable(audio_frame);
-	if (result < 0) {
-		printf("error - av_frame_make_writable\n");
-		return -7;
-	}
 
 	void* buffer = malloc(1024*1024);
-	for (int i=0; i<(1024); i++) write_audio_frame(buffer);
+	for (int i=0; i<(4096); i++) {
+		//write_audio_frame(buffer);
+		write_video_frame(bitmap);
+		pts++;
+	}
 
 	close_video_file();
 
