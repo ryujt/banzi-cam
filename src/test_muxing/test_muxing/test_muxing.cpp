@@ -6,6 +6,8 @@
 #include <math.h>
 #include <ryulib/VideoCreater.hpp>
 
+#define STREAM_DURATION   10.0
+
 int write_frame(AVFormatContext *fmt_ctx, const AVRational *time_base, AVStream *st, AVPacket *pkt)
 {
     av_packet_rescale_ts(pkt, *time_base, st->time_base);
@@ -107,8 +109,12 @@ int main(int argc, char **argv)
 {
     VideoCreater* videoCreater = new VideoCreater("test.mp4", 1024, 768);
 
+    // 인코딩을 확인하기 위해서 위 아래 색상이 다른 bitmap 샘플 생성
     void* bitmap = malloc(1024 * 768 * 4);
-    memset(bitmap, 250, 1024 * 768 * 4);
+    memset(bitmap, 255, 1024 * 768 * 2);
+    char* temp = (char*) bitmap;
+    temp = temp + 1024 * 768 * 2;
+    memset(temp, 0, 1024 * 768 * 2);
 
     AVRational time_base;
     time_base.num = 1;
