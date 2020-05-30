@@ -10,7 +10,7 @@
 
 int main(int argc, char **argv)
 {
-    VideoCreater* videoCreater = new VideoCreater("test.mp4", 1024, 768);
+    VideoCreater* videoCreater = new VideoCreater("test.mp4", 1024, 768, 2, 48000);
 
     // 인코딩을 확인하기 위해서 위 아래 색상이 다른 bitmap 샘플 생성
     void* bitmap = malloc(1024 * 768 * 4);
