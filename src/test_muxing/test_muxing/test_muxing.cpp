@@ -26,7 +26,7 @@ int main(int argc, char **argv)
         if (videoCreater->isVideoTurn()) {
             if (videoCreater->writeBitmap(bitmap) == false) break;
         } else {
-            if (videoCreater->writeAudioPacket(audio) == false) break;
+            if (videoCreater->writeAudioPacket(audio, 1024) == false) break;
         }
 
         if (videoCreater->isEOF(STREAM_DURATION)) break;

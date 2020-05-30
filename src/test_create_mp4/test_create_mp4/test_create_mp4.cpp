@@ -294,7 +294,7 @@ int main()
 
 	void* buffer = malloc(1024*1024);
 	for (int i=0; i<(4096); i++) {
-		//write_audio_frame(buffer);
+		write_audio_frame(buffer);
 		write_video_frame(bitmap);
 		pts++;
 	}
