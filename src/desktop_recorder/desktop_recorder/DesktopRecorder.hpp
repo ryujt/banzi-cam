@@ -5,9 +5,6 @@
 #include "DesktopCapture.hpp"
 #include "AudioCapture.hpp"
 
-#define CHANNELS	2
-#define SAMPLE_RATE 48000
-
 #define TASK_START	1
 #define TASK_STOP	2
 
@@ -46,6 +43,8 @@ public:
 				int audio_size = audioCapture_.getAduioDataSize();
 				if (videoCreater_->writeAudioPacket(audio, audio_size) == false)
 					throw "오디오 인코딩 중에 에러가 발생하였습니다.";
+
+				free(audio);
 			}
 		});
 

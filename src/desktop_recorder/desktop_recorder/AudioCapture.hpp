@@ -1,34 +1,57 @@
 #pragma once
 
+#include <ryulib/base.hpp>
+#include <ryulib/debug_tools.hpp>
+#include <ryulib/AudioIO.hpp>
+#include <ryulib/ThreadQueue.hpp>
+
+const int CHANNELS = 1;
+const int SAMPLE_RATE = 48000;
+const int SAMPLE_SIZE = 2;
+const int FRAMES_PER_BUFFER = 5760;
+
 class AudioCapture {
 public:
 	AudioCapture()
+		: audio_input_(CHANNELS, SAMPLE_RATE, SAMPLE_SIZE, FRAMES_PER_BUFFER)
 	{
-		audio_ = malloc(1024 * 1024);
-		memset(audio_, 0, 1024 * 1024);
+		Audio::init();
 
+		audio_input_.setOnError([&](const void* obj, int error_code) {
+			DebugOutput::trace("AudioCapture - error_code: %d", error_code);
+		});
+
+		audio_input_.setOnData([&](const void* obj, const void* buffer, int buffer_size) {
+			audio_size_ = buffer_size;
+			void* data = malloc(buffer_size);
+			memcpy(data, buffer, buffer_size);
+			queue_.push(data);
+		});
 	}
 
 	void start()
 	{
-
+		audio_input_.open();
 	}
 
 	void stop()
 	{
-
+		audio_input_.close();
 	}
 
 	void* getAudioData()
 	{
-		return audio_;
+		void* data = queue_.pop();
+		if (data == NULL) return nullptr;
+		return data;
 	}
 
 	int getAduioDataSize() {
-		return 1024;
+		return audio_size_;
 	}
 
 private:
-	// TODO: 테스트를 위한 임시
-	void* audio_;
+	int audio_size_ = 0;
+	AudioInput audio_input_;
+	ThreadQueue<void*> queue_;
 };
