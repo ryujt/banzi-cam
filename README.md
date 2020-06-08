@@ -2,7 +2,17 @@
 
 반디캠 흉내내기 프로젝트
 
-설명 자료 참고
+## 준비 사항
+- Visual Studio 2015 Update 3 또는 이후 버전
+- vcpkg 설치 및 라이브러리 설치
+  - ["vcpkg 설치" 참고](/install/vcpkg/)
+  - vcpkg install ffmpeg portaudio boost-scope-exit
+- RyuLib for C++
+  - [https://github.com/ryujt/ryulib-cpp](https://github.com/ryujt/ryulib-cpp)
+- 소스
+  - [https://github.com/ryujt/banzi-cam](https://github.com/ryujt/banzi-cam)
+
+## 설명 자료 참고
 * [http://10bun.tv/projects/banzicam-1/](http://10bun.tv/projects/banzicam-1/)
 * [http://10bun.tv/projects/banzicam-2/](http://10bun.tv/projects/banzicam-2/)
 * [http://10bun.tv/projects/banzicam-3/](http://10bun.tv/projects/banzicam-3/)
