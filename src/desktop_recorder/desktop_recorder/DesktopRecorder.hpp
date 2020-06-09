@@ -29,45 +29,18 @@ public:
 				return;
 			}
 
-			if (videoCreater_->isVideoTurn()) {
-				void* bitmap = desktopCapture_.getBitmap();
-				if (videoCreater_->writeBitmap(bitmap) == false) 
-					throw "비디오 인코딩 중에 에러가 발생하였습니다.";
-			} else {
-				void* audio = audioCapture_.getAudioData();
-				if (audio == nullptr) {
-					scheduler_.sleep(1);
-					return;
-				}
-
-				int audio_size = audioCapture_.getAduioDataSize();
-				if (videoCreater_->writeAudioPacket(audio, audio_size) == false)
-					throw "오디오 인코딩 중에 에러가 발생하였습니다.";
-
-				free(audio);
-			}
+			if (do_encode() == false) scheduler_.sleep(1);
 		});
 
 		scheduler_.setOnTask([&](int task, const string text, const void* data, int, int size) {
 			switch (task) {
 				case TASK_START: {
-					auto task = (Task*) data;
-					videoCreater_ = new VideoCreater(task->filename_.c_str(), task->width_, task->height_, CHANNELS, SAMPLE_RATE);
-						
-					desktopCapture_.start(task->left_, task->top_, task->width_, task->height_);
-					audioCapture_.start();
-					scheduler_.start();
-
+					do_start((Task*) data);
 					break;
 				}
 
 				case TASK_STOP: {
-					scheduler_.stop();
-					audioCapture_.stop();
-
-					delete videoCreater_;
-					videoCreater_ = nullptr;
-
+					do_stop();
 					break;
 				}
 			}
@@ -76,7 +49,8 @@ public:
 
 	void terminate()
 	{
-		stop();
+		scheduler_.terminateAndWait();
+		do_stop();
 	}
 
 	void start(const string filename, int left, int top, int width, int height)
@@ -94,4 +68,45 @@ private:
 	Scheduler scheduler_;
 	DesktopCapture desktopCapture_;
 	AudioCapture audioCapture_;
+
+	void do_start(Task* task)
+	{
+		videoCreater_ = new VideoCreater(task->filename_.c_str(), task->width_, task->height_, CHANNELS, SAMPLE_RATE);
+		desktopCapture_.start(task->left_, task->top_, task->width_, task->height_);
+		audioCapture_.start();
+		scheduler_.start();
+	}
+
+	void do_stop()
+	{
+		scheduler_.stop();
+		audioCapture_.stop();
+
+		while (true) {
+			if (do_encode() == false) break;
+		}
+
+		delete videoCreater_;
+		videoCreater_ = nullptr;
+	}
+
+	bool do_encode()
+	{
+		if (videoCreater_->isVideoTurn()) {
+			void* bitmap = desktopCapture_.getBitmap();
+			if (videoCreater_->writeBitmap(bitmap) == false)
+				throw "비디오 인코딩 중에 에러가 발생하였습니다.";
+		} else {
+			void* audio = audioCapture_.getAudioData();
+			if (audio == nullptr) return false;
+
+			int audio_size = audioCapture_.getAduioDataSize();
+			if (videoCreater_->writeAudioPacket(audio, audio_size) == false)
+				throw "오디오 인코딩 중에 에러가 발생하였습니다.";
+
+			free(audio);
+		}
+
+		return true;
+	}
 };

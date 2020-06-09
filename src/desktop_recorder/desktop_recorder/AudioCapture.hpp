@@ -6,9 +6,9 @@
 #include <ryulib/ThreadQueue.hpp>
 
 const int CHANNELS = 1;
-const int SAMPLE_RATE = 48000;
-const int SAMPLE_SIZE = 2;
-const int FRAMES_PER_BUFFER = 5760;
+const int SAMPLE_RATE = 44100;
+const int SAMPLE_SIZE = 4;
+const int FRAMES_PER_BUFFER = 4410;
 
 class AudioCapture {
 public:
@@ -22,6 +22,7 @@ public:
 		});
 
 		audio_input_.setOnData([&](const void* obj, const void* buffer, int buffer_size) {
+			DebugOutput::trace("AudioCapture - buffer_size: %d", buffer_size);
 			audio_size_ = buffer_size;
 			void* data = malloc(buffer_size);
 			memcpy(data, buffer, buffer_size);
