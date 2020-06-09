@@ -34,15 +34,8 @@ public:
 
 		scheduler_.setOnTask([&](int task, const string text, const void* data, int, int size) {
 			switch (task) {
-				case TASK_START: {
-					do_start((Task*) data);
-					break;
-				}
-
-				case TASK_STOP: {
-					do_stop();
-					break;
-				}
+				case TASK_START: do_start((Task*) data); break;
+				case TASK_STOP:  do_stop(); break;
 			}
 		});
 	}
