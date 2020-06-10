@@ -22,11 +22,11 @@ public:
 		});
 
 		audio_input_.setOnData([&](const void* obj, const void* buffer, int buffer_size) {
-			DebugOutput::trace("AudioCapture - buffer_size: %d", buffer_size);
 			audio_size_ = buffer_size;
 			void* data = malloc(buffer_size);
 			memcpy(data, buffer, buffer_size);
 			queue_.push(data);
+			//DebugOutput::trace("AudioCapture - queue_.size(): %d", queue_.size());
 		});
 	}
 
