@@ -64,6 +64,10 @@ private:
 
 	void do_start(Task* task)
 	{
+		if (videoCreater_ != nullptr) {
+			throw "이미 녹화 중입니다.";
+		}
+
 		videoCreater_ = new VideoCreater(task->filename_.c_str(), task->width_, task->height_, CHANNELS, SAMPLE_RATE);
 		desktopCapture_.start(task->left_, task->top_, task->width_, task->height_);
 		audioCapture_.start();
@@ -79,12 +83,16 @@ private:
 			if (do_encode() == false) break;
 		}
 
-		delete videoCreater_;
-		videoCreater_ = nullptr;
+		if (videoCreater_ != nullptr) {
+			delete videoCreater_;
+			videoCreater_ = nullptr;
+		}
 	}
 
 	bool do_encode()
 	{
+		if (videoCreater_ == nullptr) return false;
+
 		if (videoCreater_->isVideoTurn()) {
 			void* bitmap = desktopCapture_.getBitmap();
 			if (videoCreater_->writeBitmap(bitmap) == false)
