@@ -9,12 +9,8 @@
   - vcpkg install ffmpeg portaudio boost-scope-exit
 - RyuLib for C++
   - [https://github.com/ryujt/ryulib-cpp](https://github.com/ryujt/ryulib-cpp)
-- 소스
-  - [https://github.com/ryujt/banzi-cam](https://github.com/ryujt/banzi-cam)
 
 ## 설명 자료 참고
-* [http://10bun.tv/projects/banzicam-1/](http://10bun.tv/projects/banzicam-1/)
-* [http://10bun.tv/projects/banzicam-2/](http://10bun.tv/projects/banzicam-2/)
-* [http://10bun.tv/projects/banzicam-3/](http://10bun.tv/projects/banzicam-3/)
-* [http://10bun.tv/projects/banzicam-4/](http://10bun.tv/projects/banzicam-4/)
-* [http://10bun.tv/projects/banzicam-5/](http://10bun.tv/projects/banzicam-5/)
+* [http://10bun.tv/projects/banzicam/01/](http://10bun.tv/projects/banzicam/01/)
+* [http://10bun.tv/projects/banzicam/02/](http://10bun.tv/projects/banzicam/02/)
+* [http://10bun.tv/projects/banzicam/03/](http://10bun.tv/projects/banzicam/03/)
