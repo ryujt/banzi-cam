@@ -12,13 +12,17 @@ public:
 
 	void start(int left, int top, int width, int height)
 	{
-		left_ = left; 
+		left_ = left;
 		top_ = top;
 		width_ = width;
 		height_ = height;
-		bitmap_size_ = width * height * PIXELSIZE;
-		bitmap_ = malloc(bitmap_size_);
-		memset(bitmap_, 0, bitmap_size_);
+		int bitmap_size = width * height * PIXELSIZE;
+		bitmap_ = malloc(bitmap_size);
+		memset(bitmap_, 0, bitmap_size);
+	}
+
+	void stop()
+	{
 	}
 
 	void* getBitmap()
@@ -28,8 +32,8 @@ public:
 	}
 
 private:
-	int left_, top_, width_, height_, bitmap_size_;
-	void* bitmap_;
+	int left_, top_, width_, height_;
+	void* bitmap_ = nullptr;
 
 	void do_capture()
 	{
@@ -113,6 +117,6 @@ private:
 		bmpInfo.bmiHeader.biClrUsed = 0;
 		bmpInfo.bmiHeader.biClrImportant = 0;
 
-		GetDIBits(hMemDC, hBit, 0, height_, (PBYTE) bitmap_, &bmpInfo, DIB_RGB_COLORS);
+		GetDIBits(hMemDC, hBit, 0, height_, (PBYTE)bitmap_, &bmpInfo, DIB_RGB_COLORS);
 	}
 };
