@@ -14,3 +14,6 @@
 * [http://10bun.tv/projects/banzicam/01/](http://10bun.tv/projects/banzicam/01/)
 * [http://10bun.tv/projects/banzicam/02/](http://10bun.tv/projects/banzicam/02/)
 * [http://10bun.tv/projects/banzicam/03/](http://10bun.tv/projects/banzicam/03/)
+* [http://10bun.tv/projects/banzicam/04/](http://10bun.tv/projects/banzicam/04/)
+* [http://10bun.tv/projects/banzicam/05/](http://10bun.tv/projects/banzicam/05/)
+* [http://10bun.tv/projects/banzicam/06/](http://10bun.tv/projects/banzicam/06/)
