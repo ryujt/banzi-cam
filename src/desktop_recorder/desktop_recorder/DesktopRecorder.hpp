@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ryulib/Scheduler.hpp>
-#include <ryulib/VideoCreater.hpp>
+#include <ffmpeg/VideoCreater.hpp>
 #include "DesktopCapture.hpp"
 #include "AudioCapture.hpp"
 
